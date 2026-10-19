@@ -27,7 +27,7 @@ pub static COMMANDS: &[CommandSpec] = &[
     CommandSpec::new("surface.thicken", "Thicken", thicken)
         .at("SURFACE", "CREATE")
         .icon("surface_thicken")
-        .params("bodies: [surface names]; thickness: expr (negative: against the normal); symmetric?: bool; operation?: new|join|cut|intersect; targets?"),
+        .params("bodies: [surface names]; thickness: expr (negative: against the normal); symmetric?: bool; operation?: new|join|cut|intersect; targets?; tolerance?: expr (how far a fitted face may stray, default 0.01 mm). Planes and cylinders move exactly; other faces are fitted"),
     CommandSpec::new("surface.extend", "Extend", extend)
         .at("SURFACE", "MODIFY")
         .icon("surface_extend")
@@ -539,12 +539,17 @@ fn thicken(s: &mut Session, p: &Value) -> Result<Value> {
     let bodies = bodies_param(s, p, cmd)?;
     let thickness = expr(p, "thickness").ok_or_else(|| bad(cmd, "`thickness` is required"))?;
     check_expr(s, &thickness, Kind::Length, cmd, "thickness")?;
+    let tolerance = expr(p, "tolerance");
+    if let Some(t) = &tolerance {
+        check_expr(s, t, Kind::Length, cmd, "tolerance")?;
+    }
     let kind = FeatureKind::Thicken {
         bodies: bodies.into_iter().map(BodyName).collect(),
         thickness,
         symmetric: bool_(p, "symmetric").unwrap_or(false),
         operation: operation(p, cmd)?,
         targets: string_list(p, "targets").into_iter().map(BodyName).collect(),
+        tolerance,
     };
     add_feature(s, p, kind)
 }
@@ -1625,6 +1630,29 @@ mod tests {
         assert!((area - want).abs() < want * 1e-2, "{area} vs {want}");
         assert!(s.execute("surface.thicken", &json!({"bodies": ["Nope"], "thickness": 1})).is_err());
         assert!(s.execute("surface.trim", &json!({"body": "Sheet"})).is_err());
+    }
+
+    /// `surface.thicken` takes the fitting tolerance (an expression, kept on the feature): the
+    /// error for one too tight names it, and a bad one is refused before anything is added.
+    #[test]
+    fn thicken_takes_a_tolerance() {
+        let mut s = Session::default();
+        run(&mut s, "solid.box", json!({"length": 28, "width": 28, "height": 20, "corner": [-14, -14, 0], "body_name": "Saddle"}));
+        run(
+            &mut s,
+            "solid.cylinder",
+            json!({"radius": 40, "height": 120, "base": [0, -60, 50], "axis": "Y", "operation": "cut", "targets": ["Saddle"]}),
+        );
+        let z = |x: f64| 50.0 - (1600.0 - x * x).sqrt();
+        let rim = json!([[14, 0, z(14.0)], [0, 14, z(0.0)], [-14, 0, z(-14.0)], [0, -14, z(0.0)]]);
+        run(&mut s, "surface.patch", json!({"edges": rim, "body": "Saddle", "body_name": "Cover"}));
+        let err = s.execute("surface.thicken", &json!({"bodies": ["Cover"], "thickness": 1.5, "tolerance": 1e-6})).unwrap_err().to_string();
+        assert!(err.contains("can't be fitted within 0.000001 mm"), "{err}");
+        assert!(s.execute("surface.thicken", &json!({"bodies": ["Cover"], "thickness": 1.5, "tolerance": "nope"})).is_err());
+        run(&mut s, "surface.thicken", json!({"bodies": ["Cover"], "thickness": 1.5, "tolerance": "0.05 mm", "body_name": "Slab", "name": "Thick"}));
+        assert!(volume(&s, "Slab") > 0.0);
+        let def = run(&mut s, "timeline.inspect", json!({"feature": "Thick"}));
+        assert_eq!(def["definition"]["tolerance"], "0.05 mm", "{def}");
     }
 
     /// `surface.patch`: a box with its top cut away by a sideways cylinder, patched by its rim

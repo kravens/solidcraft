@@ -1462,7 +1462,7 @@ mod tests {
         // A solid keeps its shells, its faces and its edges: thickening the sheet gives a closed
         // body whose top face is still the B-spline one, and fairing that face leaves the body a
         // solid of the same shape.
-        let solid = crate::thicken(&body, 2.0, false).unwrap();
+        let solid = crate::thicken(&body, 2.0, false, 0.01).unwrap();
         assert!(!solid.is_surface());
         let top =
             (0..solid.face_count()).find(|&i| matches!(solid.solid.face_iter().nth(i).map(|f| f.surface()), Some(mt::Surface::BSplineSurface(_))));

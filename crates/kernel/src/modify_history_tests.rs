@@ -378,7 +378,7 @@ fn surfaces_keep_their_faces() {
 #[test]
 fn thicken_offsets_the_surface() {
     let s = crate::patch_region(&Plane::XY, &Region2 { outer: square(0.0, 0.0, 10.0, 10.0), holes: vec![] }).unwrap();
-    let t = crate::thicken(&s, 2.0, false).unwrap();
+    let t = crate::thicken(&s, 2.0, false, 0.01).unwrap();
     let h = verified(&t, &s, reach(2.0));
     assert_eq!(with(h, &[face(0)]).len(), 1);
     assert_eq!(with(h, &[FaceOrigin::Offset { operand: 0, face: 0 }]).len(), 1);

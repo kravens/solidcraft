@@ -1275,6 +1275,10 @@ pub enum FeatureKind {
         operation: Operation,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         targets: Vec<BodyName>,
+        /// How far a fitted face may stray from the true offset (none: 0.01 mm).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[walk(length = "Tolerance")]
+        tolerance: Option<Expr>,
     },
     /// A surface body swept straight along the sketch normal from open curve chains and the
     /// boundaries of profiles: walls only, no caps.

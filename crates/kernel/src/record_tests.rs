@@ -500,7 +500,7 @@ fn nearest_edge(result: &Body, face: usize, input: &Body, edges: &[usize]) -> us
 fn thicken_reports_copies_offsets_and_walls() {
     let c = crate::cylinder(Vec3::ZERO, Vec3::Z, 10.0, 20.0).unwrap();
     let half = crate::copy_faces(&c, &[Vec3::new(7.0, 7.0, 10.0)]).unwrap();
-    let t = crate::thicken(&half, 1.0, false).unwrap();
+    let t = crate::thicken(&half, 1.0, false, 0.01).unwrap();
     check_kept(&t, &half);
     let h = t.history().unwrap();
     assert_eq!(h.faces[0].origins, [FaceOrigin::Face { operand: 0, face: 0 }]);
